@@ -1,3 +1,3 @@
-# Changelog for servant-hello-world
+# Changelog for servant-hasql
 
 ## Unreleased changes

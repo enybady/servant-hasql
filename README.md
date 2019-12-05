@@ -1,1 +1,1 @@
-# servant-hello-world
+# servant-hasql

@@ -1,10 +1,10 @@
-name:                servant-hello-world
+name:                servant-hasql
 version:             0.1.0.0
-github:              "Github username here/servant-hello-world"
-license:             BSD3
-author:              "Author name here"
-maintainer:          "Author email here"
-copyright:           "2019 Author name here"
+github:              "lupusanay/servant-hasql"
+license:             MIT
+author:              "Ilya Kopeshtianski"
+maintainer:          "lupusanay@gmail.com"
+copyright:           "2019 Ilya Kopeshtianski"
 
 extra-source-files:
 - README.md
@@ -17,16 +17,37 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/Github username here/servant-hello-world#readme>
+description:         Please see the README on GitHub at <https://github.com/lupusanay/servant-hasql#readme>
 
 dependencies:
 - base >= 4.7 && < 5
+- servant-server
+- hasql
+- hasql-th
+- hasql-pool
+- aeson
+- text
+- vector
+- bytestring
+- mtl
+- wai
+- warp
+
+default-extensions:
+- OverloadedStrings
+- QuasiQuotes
+- DataKinds
+- DeriveGeneric
+- GeneralizedNewtypeDeriving
+- DeriveFunctor
+- TemplateHaskell
+- TypeOperators
 
 library:
   source-dirs: src
 
 executables:
-  servant-hello-world-exe:
+  servant-hasql-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -34,10 +55,10 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - servant-hello-world
+    - servant-hasql
 
 tests:
-  servant-hello-world-test:
+  servant-hasql-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -45,4 +66,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - servant-hello-world
+    - servant-hasql
