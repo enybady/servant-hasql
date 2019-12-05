@@ -27,6 +27,7 @@ import Network.Wai
 import Network.Wai.Handler.Warp
 import Servant
 
+
 type API = "users" :> Get '[ JSON] [User]
 
 api :: Proxy API
@@ -45,16 +46,6 @@ server = do
   where
     settings = (1, 1, "host=localhost port=5432 user=lupusanay dbname=postgres password=qwerty")
 
-data User =
-  User
-    { username :: String
-    , password :: String
-    }
-  deriving (Show, Generic)
-
-instance FromJSON User
-
-instance ToJSON User
 
 class MonadIO m =>
       MonadDB m
@@ -74,15 +65,30 @@ instance MonadDB AppM where
       result <- liftIO $ use pool sess
       runAppM $ pure result
 
-errorWithBody :: ServerError -> String -> ServerError
-errorWithBody err msg = err {errBody = LBS.fromStrict $ BS.pack msg}
+
+data User =
+  User
+    { username :: String
+    , password :: String
+    }
+  deriving (Show, Generic)
+
+instance FromJSON User
+
+instance ToJSON User
+
 
 getUsers :: (MonadDB m, MonadError ServerError m) => m [User]
 getUsers = do
   result <- runSession allUsersSession
   case result of
     Right users -> pure users
-    Left error -> throwError $ errorWithBody err500 $ show error
+    Left error -> parseUsageError error
+  where
+    parseUsageError (ConnectionError (Just msg)) = throw500 msg
+    parseUsageError (ConnectionError (Nothing)) = throw500 "Database connection error"
+    parseUsageError (SessionError (Session.QueryError msg _ _)) = throw500 msg
+    throw500 msg = throwError err500 {errBody = LBS.fromStrict msg}
 
 allUsersSession :: Session [User]
 allUsersSession = Session.statement () allUsers
