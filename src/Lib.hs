@@ -4,7 +4,6 @@ module Lib
 
 import Control.Exception (throw)
 import Control.Monad.Error.Class (MonadError)
-import Control.Monad.Fail (MonadFail, fail)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader
 import Data.Aeson
@@ -27,7 +26,6 @@ import Network.Wai
 import Network.Wai.Handler.Warp
 import Servant
 
-
 type API = "users" :> Get '[ JSON] [User]
 
 api :: Proxy API
@@ -45,7 +43,6 @@ server = do
   run 8080 $ app pool
   where
     settings = (1, 1, "host=localhost port=5432 user=lupusanay dbname=postgres password=qwerty")
-
 
 class MonadIO m =>
       MonadDB m
@@ -65,7 +62,6 @@ instance MonadDB AppM where
       result <- liftIO $ use pool sess
       runAppM $ pure result
 
-
 data User =
   User
     { username :: String
@@ -77,7 +73,6 @@ instance FromJSON User
 
 instance ToJSON User
 
-
 getUsers :: (MonadDB m, MonadError ServerError m) => m [User]
 getUsers = do
   result <- runSession allUsersSession
@@ -87,7 +82,7 @@ getUsers = do
   where
     parseUsageError (ConnectionError (Just msg)) = throw500 msg
     parseUsageError (ConnectionError (Nothing)) = throw500 "Database connection error"
-    parseUsageError (SessionError (Session.QueryError msg _ _)) = throw500 msg
+    parseUsageError (SessionError (Session.QueryError _ _ msg)) = throw500 $ BS.pack $ show msg
     throw500 msg = throwError err500 {errBody = LBS.fromStrict msg}
 
 allUsersSession :: Session [User]
