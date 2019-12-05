@@ -9,7 +9,8 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader
 import Data.Aeson
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy as LBS
+import Data.Profunctor
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import GHC.Generics (Generic)
@@ -18,7 +19,7 @@ import qualified Hasql.Connection as Connection
 import Hasql.Decoders (Row, Value)
 import qualified Hasql.Decoders as Decoders
 import Hasql.Pool
-import Hasql.Session (Session)
+import Hasql.Session (QueryError, Session)
 import qualified Hasql.Session as Session
 import Hasql.Statement
 import qualified Hasql.TH as TH
@@ -55,10 +56,10 @@ instance FromJSON User
 
 instance ToJSON User
 
-class (Monad m, MonadIO m) =>
+class MonadIO m =>
       MonadDB m
   where
-  withPool :: (Pool -> m a) -> m a
+  runSession :: Session a -> m (Either UsageError a)
 
 newtype AppM a =
   AppM
@@ -67,32 +68,27 @@ newtype AppM a =
   deriving (Functor, Applicative, Monad, MonadIO, Generic, MonadError ServerError)
 
 instance MonadDB AppM where
-  withPool f =
+  runSession sess =
     AppM $ do
       pool <- ask
-      runAppM (f pool)
+      result <- liftIO $ use pool sess
+      runAppM $ pure result
 
-instance MonadFail AppM where
-  fail msg = throwError $ err500 {errBody = BSL.fromStrict $ BS.pack $ show msg}
+errorWithBody :: ServerError -> String -> ServerError
+errorWithBody err msg = err {errBody = LBS.fromStrict $ BS.pack msg}
 
-getUsers :: (MonadDB m, MonadFail m) => m [User]
+getUsers :: (MonadDB m, MonadError ServerError m) => m [User]
 getUsers = do
-  Right users <- withPool $ \pool -> liftIO $ use pool allUsersSession
-  pure $ users
+  result <- runSession allUsersSession
+  case result of
+    Right users -> pure users
+    Left error -> throwError $ errorWithBody err500 $ show error
 
 allUsersSession :: Session [User]
-allUsersSession = do
-  userTuples <- Session.statement () allUsers
-  let users = V.toList $ V.map decodeUserFromTuple userTuples
-  pure $ users
+allUsersSession = Session.statement () allUsers
 
-decodeUserFromTuple :: (T.Text, T.Text) -> User
-decodeUserFromTuple (name, password) = User (T.unpack name) (T.unpack password)
-
-allUsers :: Statement () (V.Vector (T.Text, T.Text))
-allUsers = [TH.vectorStatement| select name :: text, password :: text from "users"|]
-
-userRow :: Row User
-userRow =
-  User <$> (T.unpack <$> (Decoders.column . Decoders.nonNullable) Decoders.text) <*>
-  (T.unpack <$> (Decoders.column . Decoders.nonNullable) Decoders.text)
+allUsers :: Statement () [User]
+allUsers = rmap tuplesToUsers [TH.vectorStatement| select name :: text, password :: text from "users"|]
+  where
+    tupleToUser (name, pass) = User (T.unpack name) (T.unpack pass)
+    tuplesToUsers vec = V.toList $ V.map tupleToUser vec
