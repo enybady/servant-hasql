@@ -1,5 +1,5 @@
 .stack-work/
-.idea
+.idea/
 servant-hasql.cabal
 *~
 out
