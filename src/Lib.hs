@@ -58,14 +58,10 @@ api = Proxy
 serverr :: Pool -> Server API
 serverr pool = return todoSwagger :<|> (hoistServer apiPsql appMToHandler $ getNodes)
   where
-    appMToHandler :: AppM a -> Handler a
-    appMToHandler m = runReaderT (runAppM m) pool
+    appMToHandler m = runReaderT m pool
 
 app :: Pool -> Application
 app pool = serve api $ serverr pool
-  where
-    appMToHandler :: AppM a -> Handler a
-    appMToHandler m = runReaderT (runAppM m) pool
 
 server :: IO ()
 server = do
@@ -79,19 +75,6 @@ class MonadIO m =>
   where
   runSession :: Session a -> m (Either UsageError a)
 
-newtype AppM a =
-  AppM
-    { runAppM :: ReaderT (Pool) (Handler) a
-    }
-  deriving (Functor, Applicative, Monad, MonadIO, Generic, MonadError ServerError)
-
-instance MonadDB AppM where
-  runSession sess =
-    AppM $ do
-      pool <- ask
-      result <- liftIO $ use pool sess
-      runAppM $ pure result
-
 data Node =
   Node
     { nodeId :: Int
@@ -104,9 +87,10 @@ instance ToJSON Node
 
 instance ToSchema Node
 
-getNodes :: (MonadDB m, MonadError ServerError m) => m [Node]
+getNodes :: (MonadIO m, MonadError ServerError m, MonadReader Pool m) => m [Node]
 getNodes = do
-  result <- runSession selectNodesSession
+  pool <- ask
+  result <- liftIO $ use pool selectNodesSession
   case result of
     Right nodes -> pure nodes
     Left error -> parseUsageError error
