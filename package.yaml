@@ -21,7 +21,11 @@ description:         Please see the README on GitHub at <https://github.com/lupu
 
 dependencies:
 - base >= 4.7 && < 5
+- swagger2
+- aeson-pretty
 - servant-server
+- servant-swagger
+- servant
 - hasql
 - hasql-th
 - hasql-pool

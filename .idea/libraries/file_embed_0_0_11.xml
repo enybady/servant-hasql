@@ -1,11 +1,11 @@
 <component name="libraryTable">
   <library name="file-embed-0.0.11">
     <CLASSES>
-      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hello-world/file-embed-0.0.11" />
+      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hasql/file-embed-0.0.11" />
     </CLASSES>
     <JAVADOC />
     <SOURCES>
-      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hello-world/file-embed-0.0.11" />
+      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hasql/file-embed-0.0.11" />
     </SOURCES>
   </library>
 </component>

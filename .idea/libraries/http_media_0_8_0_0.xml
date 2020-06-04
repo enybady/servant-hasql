@@ -1,11 +1,11 @@
 <component name="libraryTable">
   <library name="http-media-0.8.0.0">
     <CLASSES>
-      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hello-world/http-media-0.8.0.0" />
+      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hasql/http-media-0.8.0.0" />
     </CLASSES>
     <JAVADOC />
     <SOURCES>
-      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hello-world/http-media-0.8.0.0" />
+      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hasql/http-media-0.8.0.0" />
     </SOURCES>
   </library>
 </component>

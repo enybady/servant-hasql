@@ -1,11 +1,11 @@
 <component name="libraryTable">
   <library name="warp-3.2.28">
     <CLASSES>
-      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hello-world/warp-3.2.28" />
+      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hasql/warp-3.2.28" />
     </CLASSES>
     <JAVADOC />
     <SOURCES>
-      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hello-world/warp-3.2.28" />
+      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hasql/warp-3.2.28" />
     </SOURCES>
   </library>
 </component>

@@ -1,11 +1,11 @@
 <component name="libraryTable">
   <library name="vault-0.3.1.3">
     <CLASSES>
-      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hello-world/vault-0.3.1.3" />
+      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hasql/vault-0.3.1.3" />
     </CLASSES>
     <JAVADOC />
     <SOURCES>
-      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hello-world/vault-0.3.1.3" />
+      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hasql/vault-0.3.1.3" />
     </SOURCES>
   </library>
 </component>

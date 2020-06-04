@@ -1,11 +1,11 @@
 <component name="libraryTable">
   <library name="parsers-0.12.10">
     <CLASSES>
-      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hello-world/parsers-0.12.10" />
+      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hasql/parsers-0.12.10" />
     </CLASSES>
     <JAVADOC />
     <SOURCES>
-      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hello-world/parsers-0.12.10" />
+      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hasql/parsers-0.12.10" />
     </SOURCES>
   </library>
 </component>

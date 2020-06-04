@@ -1,3 +1,8 @@
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE DataKinds       #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeOperators   #-}
+
 module Lib
   ( server
   ) where
@@ -6,6 +11,7 @@ import Control.Exception (throw)
 import Control.Monad.Error.Class (MonadError)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader
+import Data.Swagger
 import Data.Aeson
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as LBS
@@ -25,14 +31,38 @@ import qualified Hasql.TH as TH
 import Network.Wai
 import Network.Wai.Handler.Warp
 import Servant
+import Servant.API.Generic
+import Servant.Server.Generic
+import Servant.Swagger
+import Data.Aeson.Encode.Pretty   (encodePretty)
 
-type API = "users" :> Get '[ JSON] [User]
+
+data Routes route = Routes
+    { getAllNodes :: route :- "graph" :> "node" :> Get '[JSON] [Node]
+    }
+  deriving (Generic)
+
+type SwaggerAPI = "swagger.json" :> Get '[JSON] Swagger
+
+type API = SwaggerAPI :<|> ToServantApi Routes
+
+todoSwagger :: Swagger
+todoSwagger = toSwagger apiPsql
+
+apiPsql :: Proxy (ToServantApi Routes)
+apiPsql = genericApi (Proxy :: Proxy Routes)
 
 api :: Proxy API
-api = Proxy
+api = Proxy 
+
+serverr :: Pool -> Server API
+serverr pool = return todoSwagger :<|> (hoistServer apiPsql appMToHandler $ getNodes)
+  where
+    appMToHandler :: AppM a -> Handler a
+    appMToHandler m = runReaderT (runAppM m) pool
 
 app :: Pool -> Application
-app pool = serve api $ hoistServer api appMToHandler $ getUsers
+app pool = serve api $ serverr pool
   where
     appMToHandler :: AppM a -> Handler a
     appMToHandler m = runReaderT (runAppM m) pool
@@ -42,7 +72,7 @@ server = do
   pool <- acquire settings
   run 8080 $ app pool
   where
-    settings = (1, 1, "host=localhost port=5432 user=lupusanay dbname=postgres password=qwerty")
+    settings = (1, 1, Connection.settings "localhost" (fromInteger 5432) "poster" "password" "")
 
 class MonadIO m =>
       MonadDB m
@@ -62,22 +92,23 @@ instance MonadDB AppM where
       result <- liftIO $ use pool sess
       runAppM $ pure result
 
-data User =
-  User
-    { username :: String
-    , password :: String
-    }
-  deriving (Show, Generic)
+data Node =
+  Node
+    { nodeId :: Int
+    , label  :: String
+    } deriving (Eq, Show, Generic)
 
-instance FromJSON User
+instance FromJSON Node
 
-instance ToJSON User
+instance ToJSON Node
 
-getUsers :: (MonadDB m, MonadError ServerError m) => m [User]
-getUsers = do
-  result <- runSession allUsersSession
+instance ToSchema Node
+
+getNodes :: (MonadDB m, MonadError ServerError m) => m [Node]
+getNodes = do
+  result <- runSession selectNodesSession
   case result of
-    Right users -> pure users
+    Right nodes -> pure nodes
     Left error -> parseUsageError error
   where
     parseUsageError (ConnectionError (Just msg)) = throw500 msg
@@ -85,11 +116,18 @@ getUsers = do
     parseUsageError (SessionError (Session.QueryError _ _ msg)) = throw500 $ BS.pack $ show msg
     throw500 msg = throwError err500 {errBody = LBS.fromStrict msg}
 
-allUsersSession :: Session [User]
-allUsersSession = Session.statement () allUsers
+selectNodesSession :: Session [Node]
+selectNodesSession = Session.statement () selectNodesStatement
 
-allUsers :: Statement () [User]
-allUsers = rmap tuplesToUsers [TH.vectorStatement| select name :: text, password :: text from "users"|]
-  where
-    tupleToUser (name, pass) = User (T.unpack name) (T.unpack pass)
-    tuplesToUsers vec = V.toList $ V.map tupleToUser vec
+selectNodesStatement :: Statement () [Node]
+selectNodesStatement =
+  Hasql.Statement.Statement
+    "SELECT id, label FROM nodes"
+    mempty
+    (Decoders.rowList $ Node
+      <$> (Decoders.column $ Decoders.nonNullable $ fromEnum <$> Decoders.int8)
+      <*> (Decoders.column $ Decoders.nonNullable $ T.unpack <$> Decoders.text))
+    True
+    
+writeSwaggerJSON :: IO ()
+writeSwaggerJSON = LBS.writeFile "example/swagger.json" (encodePretty todoSwagger)

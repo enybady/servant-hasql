@@ -1,11 +1,11 @@
 <component name="libraryTable">
   <library name="cryptonite-0.25">
     <CLASSES>
-      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hello-world/cryptonite-0.25" />
+      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hasql/cryptonite-0.25" />
     </CLASSES>
     <JAVADOC />
     <SOURCES>
-      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hello-world/cryptonite-0.25" />
+      <root url="file://$USER_HOME$/.cache/intellij-haskell/lib/servant-hasql/cryptonite-0.25" />
     </SOURCES>
   </library>
 </component>
