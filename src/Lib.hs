@@ -23,6 +23,7 @@ import Hasql.Connection (Connection)
 import qualified Hasql.Connection as Connection
 import Hasql.Decoders (Row, Value)
 import qualified Hasql.Decoders as Decoders
+import qualified Hasql.Encoders as Encoders
 import Hasql.Pool
 import Hasql.Session (QueryError, Session)
 import qualified Hasql.Session as Session
@@ -34,11 +35,14 @@ import Servant
 import Servant.API.Generic
 import Servant.Server.Generic
 import Servant.Swagger
-import Data.Aeson.Encode.Pretty   (encodePretty)
+import Data.Aeson.Encode.Pretty (encodePretty)
+import Data.Int (Int16)
+import Data.ByteString.Char8 (append)
 
 
 data Routes route = Routes
     { getAllNodes :: route :- "graph" :> "node" :> Get '[JSON] [Node]
+    , getNeighboursNodes :: route :- "graph" :> "node" :> Capture "id" Integer :> "neighbours" :> Get '[JSON] [Node]
     }
   deriving (Generic)
 
@@ -53,10 +57,10 @@ apiPsql :: Proxy (ToServantApi Routes)
 apiPsql = genericApi (Proxy :: Proxy Routes)
 
 api :: Proxy API
-api = Proxy 
+api = Proxy
 
 serverr :: Pool -> Server API
-serverr pool = return todoSwagger :<|> (hoistServer apiPsql appMToHandler $ getNodes)
+serverr pool = return todoSwagger :<|> (hoistServer apiPsql appMToHandler $ getNodes selectNodesSession :<|> \i -> getNodes (selectNeighboursSession i))
   where
     appMToHandler m = runReaderT m pool
 
@@ -70,11 +74,6 @@ server = do
   where
     settings = (1, 1, Connection.settings "localhost" (fromInteger 5432) "poster" "password" "")
 
-class MonadIO m =>
-      MonadDB m
-  where
-  runSession :: Session a -> m (Either UsageError a)
-
 data Node =
   Node
     { nodeId :: Int
@@ -87,10 +86,10 @@ instance ToJSON Node
 
 instance ToSchema Node
 
-getNodes :: (MonadIO m, MonadError ServerError m, MonadReader Pool m) => m [Node]
-getNodes = do
+getNodes :: (MonadIO m, MonadError ServerError m, MonadReader Pool m) => Session [Node] -> m [Node]
+getNodes sess = do
   pool <- ask
-  result <- liftIO $ use pool selectNodesSession
+  result <- liftIO $ use pool sess
   case result of
     Right nodes -> pure nodes
     Left error -> parseUsageError error
@@ -108,10 +107,26 @@ selectNodesStatement =
   Hasql.Statement.Statement
     "SELECT id, label FROM nodes"
     mempty
-    (Decoders.rowList $ Node
-      <$> (Decoders.column $ Decoders.nonNullable $ fromEnum <$> Decoders.int8)
-      <*> (Decoders.column $ Decoders.nonNullable $ T.unpack <$> Decoders.text))
+    nodeDecoder
     True
-    
+
+selectNeighboursSession :: Integer -> Session [Node]
+selectNeighboursSession i = Session.statement (fromInteger i) selectNeighboursStatement
+
+selectNeighboursStatement :: Statement Int16 [Node]
+selectNeighboursStatement =
+  Hasql.Statement.Statement
+    ("select nodes.id, nodes.label from nodes as nodes " `append`
+      "inner join (select idto as id from links where idfrom = $1 union " `append` 
+      "select idfrom as id from links where idto = $1) as ids on ids.id = nodes.id;")    
+		(Encoders.param $ Encoders.nonNullable Encoders.int2)
+    nodeDecoder
+    True
+
+nodeDecoder :: Decoders.Result [Node]
+nodeDecoder = Decoders.rowList $ Node
+   <$> (Decoders.column $ Decoders.nonNullable $ fromEnum <$> Decoders.int8)
+   <*> (Decoders.column $ Decoders.nonNullable $ T.unpack <$> Decoders.text)
+
 writeSwaggerJSON :: IO ()
 writeSwaggerJSON = LBS.writeFile "example/swagger.json" (encodePretty todoSwagger)
