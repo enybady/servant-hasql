@@ -31,6 +31,7 @@ import qualified Hasql.TH as TH
 import Network.Wai
 import Network.Wai.Handler.Warp
 import Servant
+import Servant.API
 import Servant.API.Generic
 import Servant.Server.Generic
 import Servant.Swagger
@@ -46,6 +47,9 @@ data Routes route = Routes
     { getAllNodes :: route :- "graph" :> "node" :> Get '[JSON] [Node]
     , getNeighboursNodes :: route :- "graph" :> "node" :> Capture "id" Integer :> "neighbours" :> Get '[JSON] [Node]
     , putNode :: route :- "graph" :> "node" :> ReqBody '[JSON] String :> Put '[JSON] Int
+    , deleteNode :: route :- "graph" :> "node" :> Capture "id" Integer :> DeleteNoContent '[JSON] ()
+    , changeNode :: route :- "graph" :> "node" :> Capture "id" Integer :> ReqBody '[JSON] String :> PutNoContent '[JSON] ()
+    , putLink :: route :- "graph" :> "link" :> Capture "idFrom" Integer :> Capture "idTo" Integer :> PutNoContent '[JSON] ()
     }
   deriving (Generic)
 
@@ -64,9 +68,13 @@ api = Proxy
 
 serverr :: Pool -> Server API
 serverr pool = return todoSwagger :<|> (hoistServer apiPsql appMToHandler $
-  (getR $ selectAllNodesSession)
-  :<|> (getR . selectNeighboursNodesSession)
-  :<|> (getR . insertNodeSession))
+  (getResult $ getNodes $ getAllNodesSession)
+  :<|> (\i -> getResult $ getNodes $ getNeighboursNodesSession i)
+  :<|> (\s -> getResult $ getNodes $ insertNodeSession s)
+  :<|> (\i -> getResult $ getNodes $ deleteNodeSession i) 
+  :<|> (\i s -> getResult $ getNodes $ renameNodeSession i s)
+  :<|> (\i1 i2 -> getResult $ getNodes $ insertLinkSession i1 i2)
+  )
   where
     appMToHandler m = runReaderT m pool
     getResult m = do

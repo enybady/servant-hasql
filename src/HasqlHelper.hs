@@ -10,16 +10,29 @@ import Hasql.Pool
 import Hasql.Session (Session, statement)
 import Hasql.Statement
 import Data.Int (Int16)
+import Data.Functor.Contravariant
 import Data.ByteString.Char8 (append)
 import NodeData
+import Servant.API (NoContent)
 
 getNodes :: (MonadIO m, MonadReader Pool m) => Session a -> m (Either UsageError a)
 getNodes session = do
   pool <- ask
   liftIO $ use pool session
 
-selectAllNodesSession :: Session [Node]
-selectAllNodesSession = statement () selectNodesStatement
+insertLinkSession :: Integer -> Integer -> Session ()
+insertLinkSession i j = statement (fromInteger i, fromInteger j) insertLinkStatement
+  where 
+    insertLinkStatement = 
+      Hasql.Statement.Statement
+        "insert into labels (idfrom, idto) values ($1, $2);"
+        ((fst >$< Encoders.param (Encoders.nonNullable Encoders.int2)) <>
+                  (snd >$< Encoders.param (Encoders.nonNullable Encoders.int2)))
+        Decoders.noResult
+        True
+        
+getAllNodesSession :: Session [Node]
+getAllNodesSession = statement () selectNodesStatement
   where
     selectNodesStatement =
       Hasql.Statement.Statement
@@ -28,8 +41,8 @@ selectAllNodesSession = statement () selectNodesStatement
         nodeDecoder
         True
 
-selectNeighboursNodesSession :: Integer -> Session [Node]
-selectNeighboursNodesSession i = statement (fromInteger i) selectNeighboursStatement
+getNeighboursNodesSession :: Integer -> Session [Node]
+getNeighboursNodesSession i = statement (fromInteger i) selectNeighboursStatement
   where
     selectNeighboursStatement =
       Hasql.Statement.Statement
@@ -45,21 +58,22 @@ insertNodeSession label = statement (T.pack label) insertNodeStatement
   where
     insertNodeStatement =
       Hasql.Statement.Statement
-      "INSERT into nodes(label) values ('$1')"
+      "INSERT into nodes(label) values ('$1') returning id;"
       (Encoders.param $ Encoders.nonNullable $ Encoders.text)
       (Decoders.singleRow $ Decoders.column $ Decoders.nonNullable $ fromEnum <$> Decoders.int2)
       True
       
-{-renameNodeSession :: Integer -> String -> Session Int
+renameNodeSession :: Integer -> String -> Session ()
 renameNodeSession i label = statement (fromInteger i, T.pack label) insertNodeStatement
   where
     insertNodeStatement =
       Hasql.Statement.Statement
       "INSERT into nodes(label) values ('$1')"
-      (fst >$< Encoders.param $ Encoders.nonNullable $ Encoders.text)
-      (Decoders.singleRow $ Decoders.column $ Decoders.nonNullable $ fromEnum <$> Decoders.int2)
+      ((fst >$< Encoders.param (Encoders.nonNullable Encoders.int8)) <>
+          (snd >$< Encoders.param (Encoders.nonNullable Encoders.text)))
+      Decoders.noResult
       True
--}
+
 deleteNodeSession :: Integer -> Session ()
 deleteNodeSession i = statement (fromInteger i) insertNodeStatement
   where
