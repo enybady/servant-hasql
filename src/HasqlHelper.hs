@@ -13,12 +13,24 @@ import Data.Int (Int16)
 import Data.Functor.Contravariant
 import Data.ByteString.Char8 (append)
 import NodeData
-import Servant.API (NoContent)
+import Servant
+import Control.Monad.Error.Class (MonadError)
+import qualified Hasql.Session as Session
+import qualified Data.ByteString.Lazy as LBS
 
-getNodes :: (MonadIO m, MonadReader Pool m) => Session a -> m (Either UsageError a)
+getNodes :: (MonadIO m, MonadReader Pool m, MonadError ServerError m) => Session a -> m a
 getNodes session = do
   pool <- ask
-  liftIO $ use pool session
+  result <- liftIO $ use pool session
+  getResult result
+    where
+    getResult (Right a) = return a
+    getResult (Left e)  = parseUsageError e
+    parseUsageError (ConnectionError (Just msg)) = throw500 msg
+    parseUsageError (ConnectionError (Nothing)) = throw500 "Database connection error"
+    parseUsageError (SessionError (Session.QueryError _ _ msg)) = throw500 $ BS.pack $ show msg
+    throw500 msg = throwError err500 {errBody = LBS.fromStrict msg}
+
 
 insertLinkSession :: Integer -> Integer -> Session ()
 insertLinkSession i j = statement (fromInteger i, fromInteger j) insertLinkStatement
@@ -64,9 +76,9 @@ insertNodeSession label = statement (T.pack label) insertNodeStatement
       True
       
 renameNodeSession :: Integer -> String -> Session ()
-renameNodeSession i label = statement (fromInteger i, T.pack label) insertNodeStatement
+renameNodeSession i label = statement (fromInteger i, T.pack label) renameNodeStatement
   where
-    insertNodeStatement =
+    renameNodeStatement =
       Hasql.Statement.Statement
       "INSERT into nodes(label) values ('$1')"
       ((fst >$< Encoders.param (Encoders.nonNullable Encoders.int8)) <>

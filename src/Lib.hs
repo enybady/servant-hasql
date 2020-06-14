@@ -67,27 +67,16 @@ api :: Proxy API
 api = Proxy
 
 serverr :: Pool -> Server API
-serverr pool = return todoSwagger :<|> (hoistServer apiPsql appMToHandler $
-  (getResult $ getNodes $ getAllNodesSession)
-  :<|> (\i -> getResult $ getNodes $ getNeighboursNodesSession i)
-  :<|> (\s -> getResult $ getNodes $ insertNodeSession s)
-  :<|> (\i -> getResult $ getNodes $ deleteNodeSession i) 
-  :<|> (\i s -> getResult $ getNodes $ renameNodeSession i s)
-  :<|> (\i1 i2 -> getResult $ getNodes $ insertLinkSession i1 i2)
+serverr pool = return todoSwagger :<|> (hoistServer apiPsql appMToHandler
+  (((getNodes getAllNodesSession)
+  :<|> ((\i -> getNodes (getNeighboursNodesSession i))
+  :<|> (\s -> getNodes (insertNodeSession s))))
+  :<|> ((\i -> getNodes (deleteNodeSession i))
+  :<|> ((\i s -> getNodes (renameNodeSession i s))
+  :<|> (\i1 i2 -> getNodes (insertLinkSession i1 i2)))))
   )
   where
     appMToHandler m = runReaderT m pool
-    getResult m = do
-      result <- m
-      case result of
-        Right res -> pure res
-        Left error -> parseUsageError error
-      where
-        parseUsageError (ConnectionError (Just msg)) = throw500 msg
-        parseUsageError (ConnectionError (Nothing)) = throw500 "Database connection error"
-        parseUsageError (SessionError (Session.QueryError _ _ msg)) = throw500 $ BS.pack $ show msg
-        throw500 msg = throwError err500 {errBody = LBS.fromStrict msg}
-    getR = getResult . getNodes
 
 app :: Pool -> Application
 app pool = serve api $ serverr pool
