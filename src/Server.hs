@@ -18,39 +18,42 @@ import Network.Wai.Handler.Warp
 import Servant
 import Servant.Swagger
 import Data.Aeson.Encode.Pretty (encodePretty)
+import Servant.API.Generic
 
 import NodeData
 import NodeDao
 
-type Api = "graph" :> "node" :> Get '[JSON] [Node]
-       :<|> "graph" :> "node" :> Capture "id" Integer :> "neighbours" :> Get '[JSON] [Node]
-       :<|> "graph" :> "node" :> ReqBody '[JSON] NodeLabel :> Put '[JSON] Int
-       :<|> "graph" :> "node" :> Capture "id" Integer :> DeleteNoContent '[JSON] ()
-       :<|> "graph" :> "node" :> Capture "id" Integer :> ReqBody '[JSON] NodeLabel :> PutNoContent '[JSON] ()
-       :<|> "graph" :> "link" :> Capture "idFrom" Integer :> Capture "idTo" Integer :> PutNoContent '[JSON] ()
-
+data Routes route = Routes
+    { getNodesApi :: route :- "graph" :> "node" :> Get '[JSON] [Node]
+    , getNeighboursNodesApi :: route :- "graph" :> "node" :> Capture "id" Integer :> "neighbours" :> Get '[JSON] [Node]
+    , putNodeApi :: route :- "graph" :> "node" :> ReqBody '[JSON] String :> Put '[JSON] Int
+    , deleteNodeApi :: route :- "graph" :> "node" :> Capture "id" Integer :> DeleteNoContent '[JSON] ()
+    , changeNodeApi :: route :- "graph" :> "node" :> Capture "id" Integer :> ReqBody '[JSON] String :> PutNoContent '[JSON] ()
+    , putLinkApi :: route :- "graph" :> "link" :> Capture "idFrom" Integer :> Capture "idTo" Integer :> PutNoContent '[JSON] ()
+    }
+  deriving (Generic)
+  
 type SwaggerAPI = "swagger.json" :> Get '[JSON] Swagger
 
-type AllApi = SwaggerAPI :<|> Api
+type AllApi = SwaggerAPI :<|> (ToServantApi Routes)
 
 todoSwagger :: Swagger
 todoSwagger = toSwagger api
 
-api :: Proxy Api
-api = Proxy
+api :: Proxy (ToServantApi Routes)
+api = genericApi (Proxy :: Proxy Routes)
 
 allapi :: Proxy AllApi
 allapi = Proxy
 
 serverr :: Pool -> Server AllApi
 serverr pool = return todoSwagger :<|> (hoistServer api appMToHandler
-  ((nodesDao getAllNodes)
-  :<|> (\i -> nodesDao (getNeighboursNodes i))
-  :<|> (\ (NodeLabel s) -> nodesDao (insertNode s))
-  :<|> (\i -> nodesDao (deleteNode i))
-  :<|> (\i (NodeLabel s) -> nodesDao (renameNode i s))
-  :<|> (\i1 i2 -> nodesDao (insertLink i1 i2))
-  ))
+  (((nodesDao getAllNodes)
+  :<|> ((\i -> nodesDao (getNeighboursNodes i))
+  :<|> (\s -> nodesDao (insertNode s))))
+  :<|> ((\i -> nodesDao (deleteNode i))
+  :<|> ((\i s -> nodesDao (renameNode i s))
+  :<|> (\i1 i2 -> nodesDao (insertLink i1 i2))))))
   where
     appMToHandler m = runReaderT m pool
 
