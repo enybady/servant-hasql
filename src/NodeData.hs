@@ -1,5 +1,6 @@
-module NodeData (
-  Node (..)
+module NodeData 
+  ( Node (..)
+  , NodeLabel (..)
   ) where
 
 import Data.Aeson
@@ -21,3 +22,17 @@ instance ToJSON Node where
   toJSON (Node i l) = object [ "id" .= i, "label" .= l]
 
 instance ToSchema Node
+
+data NodeLabel =
+  NodeLabel
+    { nodeLabel  :: String
+    } deriving (Eq, Show, Generic)
+
+instance FromJSON NodeLabel where
+  parseJSON = withObject "NodeLabel" $ \v -> NodeLabel
+    <$> v .: "label"
+
+instance ToJSON NodeLabel where
+  toJSON (NodeLabel label) = object [ "label" .= label]
+
+instance ToSchema NodeLabel

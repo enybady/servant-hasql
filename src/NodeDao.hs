@@ -1,4 +1,4 @@
-module HasqlHelper where
+module NodeDao where
 
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader
@@ -18,13 +18,13 @@ import Control.Monad.Error.Class (MonadError)
 import qualified Hasql.Session as Session
 import qualified Data.ByteString.Lazy as LBS
 
-getNodes :: (MonadIO m, MonadReader Pool m, MonadError ServerError m) => Session a -> m a
-getNodes session = do
+nodesDao :: (MonadIO m, MonadReader Pool m, MonadError ServerError m) => Session a -> m a
+nodesDao session = do
   pool <- ask
   result <- liftIO $ use pool session
   getResult result
     where
-    getResult (Right a) = return a
+    getResult (Right a) = pure a
     getResult (Left e)  = parseUsageError e
     parseUsageError (ConnectionError (Just msg)) = throw500 msg
     parseUsageError (ConnectionError (Nothing)) = throw500 "Database connection error"
@@ -32,19 +32,19 @@ getNodes session = do
     throw500 msg = throwError err500 {errBody = LBS.fromStrict msg}
 
 
-insertLinkSession :: Integer -> Integer -> Session ()
-insertLinkSession i j = statement (fromInteger i, fromInteger j) insertLinkStatement
+insertLink :: Integer -> Integer -> Session ()
+insertLink i j = statement (fromInteger i, fromInteger j) insertLinkStatement
   where 
     insertLinkStatement = 
       Hasql.Statement.Statement
-        "insert into labels (idfrom, idto) values ($1, $2);"
+        "insert into links (idfrom, idto) values ($1, $2);"
         ((fst >$< Encoders.param (Encoders.nonNullable Encoders.int2)) <>
                   (snd >$< Encoders.param (Encoders.nonNullable Encoders.int2)))
         Decoders.noResult
         True
         
-getAllNodesSession :: Session [Node]
-getAllNodesSession = statement () selectNodesStatement
+getAllNodes :: Session [Node]
+getAllNodes = statement () selectNodesStatement
   where
     selectNodesStatement =
       Hasql.Statement.Statement
@@ -53,8 +53,8 @@ getAllNodesSession = statement () selectNodesStatement
         nodeDecoder
         True
 
-getNeighboursNodesSession :: Integer -> Session [Node]
-getNeighboursNodesSession i = statement (fromInteger i) selectNeighboursStatement
+getNeighboursNodes :: Integer -> Session [Node]
+getNeighboursNodes i = statement (fromInteger i) selectNeighboursStatement
   where
     selectNeighboursStatement =
       Hasql.Statement.Statement
@@ -65,18 +65,18 @@ getNeighboursNodesSession i = statement (fromInteger i) selectNeighboursStatemen
       nodeDecoder
       True
 
-insertNodeSession :: String -> Session Int
-insertNodeSession label = statement (T.pack label) insertNodeStatement
+insertNode :: String -> Session Int
+insertNode label = statement (T.pack label) insertNodeStatement
   where
     insertNodeStatement =
       Hasql.Statement.Statement
-      "INSERT into nodes(label) values ('$1') returning id;"
+      "INSERT into nodes(label) values ($1) returning id;"
       (Encoders.param $ Encoders.nonNullable $ Encoders.text)
       (Decoders.singleRow $ Decoders.column $ Decoders.nonNullable $ fromEnum <$> Decoders.int2)
       True
       
-renameNodeSession :: Integer -> String -> Session ()
-renameNodeSession i label = statement (fromInteger i, T.pack label) renameNodeStatement
+renameNode :: Integer -> String -> Session ()
+renameNode i label = statement (fromInteger i, T.pack label) renameNodeStatement
   where
     renameNodeStatement =
       Hasql.Statement.Statement
@@ -86,8 +86,8 @@ renameNodeSession i label = statement (fromInteger i, T.pack label) renameNodeSt
       Decoders.noResult
       True
 
-deleteNodeSession :: Integer -> Session ()
-deleteNodeSession i = statement (fromInteger i) insertNodeStatement
+deleteNode :: Integer -> Session ()
+deleteNode i = statement (fromInteger i) insertNodeStatement
   where
     insertNodeStatement =
       Hasql.Statement.Statement
