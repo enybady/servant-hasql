@@ -26,13 +26,13 @@ import NodeDao
 data Routes route = Routes
     { getNodesApi :: route :- "graph" :> "node" :> Get '[JSON] [Node]
     , getNeighboursNodesApi :: route :- "graph" :> "node" :> Capture "id" Integer :> "neighbours" :> Get '[JSON] [Node]
-    , putNodeApi :: route :- "graph" :> "node" :> ReqBody '[JSON] String :> Put '[JSON] Int
+    , putNodeApi :: route :- "graph" :> "node" :> ReqBody '[JSON] NodeLabel :> Put '[JSON] Int
     , deleteNodeApi :: route :- "graph" :> "node" :> Capture "id" Integer :> DeleteNoContent '[JSON] ()
-    , changeNodeApi :: route :- "graph" :> "node" :> Capture "id" Integer :> ReqBody '[JSON] String :> PutNoContent '[JSON] ()
+    , changeNodeApi :: route :- "graph" :> "node" :> Capture "id" Integer :> ReqBody '[JSON] NodeLabel :> PutNoContent '[JSON] ()
     , putLinkApi :: route :- "graph" :> "link" :> Capture "idFrom" Integer :> Capture "idTo" Integer :> PutNoContent '[JSON] ()
     }
   deriving (Generic)
-  
+
 type SwaggerAPI = "swagger.json" :> Get '[JSON] Swagger
 
 type AllApi = SwaggerAPI :<|> (ToServantApi Routes)
@@ -50,9 +50,9 @@ serverr :: Pool -> Server AllApi
 serverr pool = return todoSwagger :<|> (hoistServer api appMToHandler
   (((nodesDao getAllNodes)
   :<|> ((\i -> nodesDao (getNeighboursNodes i))
-  :<|> (\s -> nodesDao (insertNode s))))
+  :<|> (\(NodeLabel s) -> nodesDao (insertNode s))))
   :<|> ((\i -> nodesDao (deleteNode i))
-  :<|> ((\i s -> nodesDao (renameNode i s))
+  :<|> ((\i (NodeLabel s) -> nodesDao (renameNode i s))
   :<|> (\i1 i2 -> nodesDao (insertLink i1 i2))))))
   where
     appMToHandler m = runReaderT m pool
