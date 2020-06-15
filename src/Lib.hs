@@ -42,44 +42,40 @@ import NodeData
 import HasqlHelper
 import Data.Either (fromRight)
 
-
-data Routes route = Routes
-    { getAllNodes :: route :- "graph" :> "node" :> Get '[JSON] [Node]
-    , getNeighboursNodes :: route :- "graph" :> "node" :> Capture "id" Integer :> "neighbours" :> Get '[JSON] [Node]
-    , putNode :: route :- "graph" :> "node" :> ReqBody '[JSON] String :> Put '[JSON] Int
-    , deleteNode :: route :- "graph" :> "node" :> Capture "id" Integer :> DeleteNoContent '[JSON] ()
-    , changeNode :: route :- "graph" :> "node" :> Capture "id" Integer :> ReqBody '[JSON] String :> PutNoContent '[JSON] ()
-    , putLink :: route :- "graph" :> "link" :> Capture "idFrom" Integer :> Capture "idTo" Integer :> PutNoContent '[JSON] ()
-    }
-  deriving (Generic)
+type Api = "graph" :> "node" :> Get '[JSON] [Node]
+       :<|> "graph" :> "node" :> Capture "id" Integer :> "neighbours" :> Get '[JSON] [Node]
+       :<|> "graph" :> "node" :> ReqBody '[JSON] String :> Put '[JSON] Int
+       :<|> "graph" :> "node" :> Capture "id" Integer :> DeleteNoContent '[JSON] ()
+       :<|> "graph" :> "node" :> Capture "id" Integer :> ReqBody '[JSON] String :> PutNoContent '[JSON] ()
+       :<|> "graph" :> "link" :> Capture "idFrom" Integer :> Capture "idTo" Integer :> PutNoContent '[JSON] ()
 
 type SwaggerAPI = "swagger.json" :> Get '[JSON] Swagger
 
-type API = SwaggerAPI :<|> ToServantApi Routes
+type AllApi = SwaggerAPI :<|> Api
 
 todoSwagger :: Swagger
-todoSwagger = toSwagger apiPsql
+todoSwagger = toSwagger api
 
-apiPsql :: Proxy (ToServantApi Routes)
-apiPsql = genericApi (Proxy :: Proxy Routes)
-
-api :: Proxy API
+api :: Proxy Api
 api = Proxy
 
-serverr :: Pool -> Server API
-serverr pool = return todoSwagger :<|> (hoistServer apiPsql appMToHandler
-  (((getNodes getAllNodesSession)
-  :<|> ((\i -> getNodes (getNeighboursNodesSession i))
-  :<|> (\s -> getNodes (insertNodeSession s))))
-  :<|> ((\i -> getNodes (deleteNodeSession i))
-  :<|> ((\i s -> getNodes (renameNodeSession i s))
-  :<|> (\i1 i2 -> getNodes (insertLinkSession i1 i2)))))
-  )
+allapi :: Proxy AllApi
+allapi = Proxy
+
+serverr :: Pool -> Server AllApi
+serverr pool = return todoSwagger :<|> (hoistServer api appMToHandler
+  ((getNodes getAllNodesSession)
+  :<|> (\i -> getNodes (getNeighboursNodesSession i))
+  :<|> (\s -> getNodes (insertNodeSession s))
+  :<|> (\i -> getNodes (deleteNodeSession i))
+  :<|> (\i s -> getNodes (renameNodeSession i s))
+  :<|> (\i1 i2 -> getNodes (insertLinkSession i1 i2))
+  ))
   where
     appMToHandler m = runReaderT m pool
 
 app :: Pool -> Application
-app pool = serve api $ serverr pool
+app pool = serve allapi $ serverr pool
 
 server :: IO ()
 server = do
